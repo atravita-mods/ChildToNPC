@@ -116,7 +116,7 @@ namespace ChildToNPC
 
                     //Create childCopy, add childCopy to list, add to farmHouse at random spot
                     Point openPoint = farmHouse.getRandomOpenPointInHouse(Game1.random, 0, 30);
-                    Point defaultBedPoint = farmHouse.getChildBed(child.Gender);
+                    Point defaultBedPoint = farmHouse.GetChildBedSpot(child.Gender);
                     defaultBedPoint = new Point(defaultBedPoint.X, defaultBedPoint.Y);
 
                     Vector2 location = openPoint == null ? new Vector2(openPoint.X * 64f, openPoint.Y * 64f) : new Vector2(defaultBedPoint.X * 64f, defaultBedPoint.Y * 64f);
