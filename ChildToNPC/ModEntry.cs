@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using ChildToNPC.Integrations.ContentPatcher;
-using Harmony;
+using HarmonyLib;
 using Microsoft.Xna.Framework;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
@@ -90,7 +90,7 @@ namespace ChildToNPC
             helper.Events.GameLoop.OneSecondUpdateTicking += OnOneSecondUpdateTicking;
 
             // Harmony
-            HarmonyInstance harmony = HarmonyInstance.Create("Loe2run.ChildToNPC");
+            Harmony harmony = new Harmony("Loe2run.ChildToNPC");
             harmony.PatchAll(Assembly.GetExecutingAssembly());
         }
 
