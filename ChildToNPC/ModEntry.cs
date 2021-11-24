@@ -385,7 +385,8 @@ namespace ChildToNPC
             {
                 try
                 {
-                    birthday = today.AddDays(-child.daysOld);
+                    // -1 because the new day already began.
+                    birthday = today.AddDays(-child.daysOld-1);
                 }
                 catch (ArithmeticException) { }
             }
