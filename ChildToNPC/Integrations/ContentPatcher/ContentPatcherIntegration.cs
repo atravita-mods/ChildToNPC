@@ -52,7 +52,26 @@ namespace ChildToNPC.Integrations.ContentPatcher
 
             // aggregate tokens
             this
-                .AddToken("NumberTotalChildren", () => this.Cache != null, () => this.TotalChildren.ToString(CultureInfo.InvariantCulture));
+                .AddToken("NumberTotalChildren", () => this.Cache != null, () => {
+                    // As long as the world is not ready this token must return 0,
+                    // otherwise we get ghost copies of the children.
+                    // This issue first occurred in release 1.2.1-unofficial.3-pathoschild:
+                    // Previous versions used Game1.player.getChildrenCount() which returns zero before
+                    // the world is ready but now children in farmhouse are read from savegame
+                    // so as long as you have at least one child the count is never zero...
+                    // TODO: I don't completely understand this, especially I don't know what Pathos' fixes are for,
+                    // i.e. why we need tokens available before save is loaded.
+                    if (Context.IsWorldReady || SaveGame.loaded == null)
+                    {
+                        ModEntry.monitor.Log($"ATTENTION: NumberTotalChildren returns {this.TotalChildren}", LogLevel.Warn);
+                        return this.TotalChildren.ToString(CultureInfo.InvariantCulture);
+                    }
+                    else
+                    {
+                        ModEntry.monitor.Log($"ATTENTION: NumberTotalChildren returns 0 to prevent ghost children", LogLevel.Warn);
+                        return "0";
+                    }
+                });
 
             // per-child tokens
             for (int i = 0; i < this.Ordinals.Length; i++)
