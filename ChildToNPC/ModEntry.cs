@@ -128,19 +128,39 @@ namespace ChildToNPC
                         location = new Vector2(int.Parse(defaultPosition[1]) * 64f, int.Parse(defaultPosition[2]) * 64f);
                     }
 
-                    //new NPC(new AnimatedSprite("Characters\\George", 0, 16, 32), new Vector2(1024f, 1408f), "JoshHouse", 0, "George", false, (Dictionary<int, int[]>) null, Game1.content.Load<Texture2D>("Portraits\\George"));
-                    NPC childCopy = new NPC(child.Sprite, location, "FarmHouse", 2, child.Name, false, null, null) //schedule null, portrait null
+                    // ATTENTION: When a token becomes ready for a given child ContentPatcher might create an NPC.
+                    // We must use that NPC and not add another copy!
+                    NPC childCopy = farmHouse.getCharacters().FirstOrDefault(npc => !(npc is Child) && npc.Name == child.Name);
+                    if (childCopy != null)
                     {
-                        DefaultMap = Game1.player.homeLocation.Value,
-                        DefaultPosition = location,
-                        Breather = false,
-                        HideShadow = false,
-                        Position = location,
-                        displayName = child.Name
-                    };
+                        childCopy.DefaultMap = Game1.player.homeLocation.Value;
+                        childCopy.DefaultPosition = location;
+                        childCopy.Breather = false;
+                        childCopy.HideShadow = false;
+                        childCopy.Position = location;
+                        childCopy.displayName = child.Name;
 
-                    copies.Add(child.Name, childCopy);
-                    farmHouse.addCharacter(childCopy);
+                        copies.Add(child.Name, childCopy);
+
+                        ModEntry.monitor.Log($"ATTENTION: Replaced existing NPC child instance created by CP to prevent ghost child", LogLevel.Warn);
+                    }
+                    else
+                    {
+                        childCopy = new NPC(child.Sprite, location, "FarmHouse", 2, child.Name, false, null, null) //schedule null, portrait null
+                        {
+                            DefaultMap = Game1.player.homeLocation.Value,
+                            DefaultPosition = location,
+                            Breather = false,
+                            HideShadow = false,
+                            Position = location,
+                            displayName = child.Name
+                        };
+
+                        copies.Add(child.Name, childCopy);
+                        farmHouse.addCharacter(childCopy);
+
+                        ModEntry.monitor.Log($"ATTENTION: Added new NPC child instance to farm house", LogLevel.Warn);
+                    }
 
                     //Check if I've made this NPC before & set gift info
                     try
