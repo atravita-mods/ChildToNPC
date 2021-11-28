@@ -130,7 +130,14 @@ namespace ChildToNPC
 
                     // ATTENTION: When a token becomes ready for a given child ContentPatcher might create an NPC.
                     // We must use that NPC and not add another copy!
-                    NPC childCopy = farmHouse.getCharacters().FirstOrDefault(npc => !(npc is Child) && npc.Name == child.Name);
+                    // We identify an NPC by name, birthday season and birthday day.
+                    // TODO: That should be enough for most cases but I really don't know what happens
+                    // if your spouse has the same name, birthday season and birthday day as your child...
+                    Func<NPC, string> getNPCBirthday = npc => $"{npc.birthday_Season} {npc.birthday_Day}";
+                    NPC childCopy = farmHouse.getCharacters()
+                                             .FirstOrDefault(npc => !(npc is Child)
+                                                                 && npc.Name == child.Name
+                                                                 && getNPCBirthday(npc) == GetChildNPCBirthday(child));
                     if (childCopy != null)
                     {
                         childCopy.DefaultMap = Game1.player.homeLocation.Value;
