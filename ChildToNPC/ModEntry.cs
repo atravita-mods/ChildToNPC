@@ -146,6 +146,8 @@ namespace ChildToNPC
                     }
                     else
                     {
+                        // The correct sprite is not available yet so we use the child sprite for creating the object.
+                        // We must load the correct sprite later.
                         childCopy = new NPC(child.Sprite, location, "FarmHouse", 2, child.Name, false, null, null) //schedule null, portrait null
                         {
                             DefaultMap = Game1.player.homeLocation.Value,
@@ -160,6 +162,9 @@ namespace ChildToNPC
                         farmHouse.addCharacter(childCopy);
 
                         ModEntry.monitor.Log($"ATTENTION: Added new NPC child instance for {child.Name} to farm house", LogLevel.Warn);
+
+                        // Load child NPC sprite in OnOneSecondUpdateTicking() .
+                        updateNeeded = true;
                     }
 
                     //Check if I've made this NPC before & set gift info
