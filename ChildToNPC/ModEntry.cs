@@ -140,16 +140,9 @@ namespace ChildToNPC
                                                                  && getNPCBirthday(npc) == GetChildNPCBirthday(child));
                     if (childCopy != null)
                     {
-                        childCopy.DefaultMap = Game1.player.homeLocation.Value;
-                        childCopy.DefaultPosition = location;
-                        childCopy.Breather = false;
-                        childCopy.HideShadow = false;
-                        childCopy.Position = location;
-                        childCopy.displayName = child.Name;
-
                         copies.Add(child.Name, childCopy);
 
-                        ModEntry.monitor.Log($"ATTENTION: Replaced existing NPC child instance created by CP to prevent ghost child", LogLevel.Warn);
+                        ModEntry.monitor.Log($"ATTENTION: Using existing NPC child instance created by CP for {child.Name} to prevent ghost child", LogLevel.Warn);
                     }
                     else
                     {
@@ -157,7 +150,7 @@ namespace ChildToNPC
                         {
                             DefaultMap = Game1.player.homeLocation.Value,
                             DefaultPosition = location,
-                            Breather = false,
+                            Breather = true,
                             HideShadow = false,
                             Position = location,
                             displayName = child.Name
@@ -166,7 +159,7 @@ namespace ChildToNPC
                         copies.Add(child.Name, childCopy);
                         farmHouse.addCharacter(childCopy);
 
-                        ModEntry.monitor.Log($"ATTENTION: Added new NPC child instance to farm house", LogLevel.Warn);
+                        ModEntry.monitor.Log($"ATTENTION: Added new NPC child instance for {child.Name} to farm house", LogLevel.Warn);
                     }
 
                     //Check if I've made this NPC before & set gift info
