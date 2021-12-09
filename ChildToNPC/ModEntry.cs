@@ -87,7 +87,7 @@ namespace ChildToNPC
             helper.Events.GameLoop.Saving += OnSaving;
             helper.Events.GameLoop.ReturnedToTitle += OnReturnedToTitle;
             helper.Events.GameLoop.GameLaunched += OnGameLaunched;
-            helper.Events.GameLoop.OneSecondUpdateTicking += OnOneSecondUpdateTicking;
+            //helper.Events.GameLoop.OneSecondUpdateTicking += OnOneSecondUpdateTicking;
 
             // Harmony
             Harmony harmony = new Harmony("Loe2run.ChildToNPC");
@@ -95,141 +95,33 @@ namespace ChildToNPC
         }
 
         /* OnDayStarted
-         * Every time the game is saved, the children are re-added to the FarmHouse
-         * So every morning, I check if there are children in the FarmHouse and remove them,
-         * and I add their dopplegangers to the FarmHouse.
+         * Everything interesting regarding the conversion happens in ContentPatcherIntegration.UpdateIfNecessary.
+         * There is only one case we have to handle here: Hiding of existing children until conversion happens.
+         * Note that in theory we could handle that in the token update, too, but unfortunately it happens too late:
+         * Children get up at 6:00 but conversion happens at 6:10 so you would see your unconverted child
+         * for 10 min before it gets converted and teleported into bed. To prevent that we put the unconverted
+         * child into bed. This has the advantage of not conflicting with the conversion in any way.
          */
         private void OnDayStarted(object sender, DayStartedEventArgs e)
         {
-            FarmHouse farmHouse = Utility.getHomeOfFarmer(Game1.player);
+            FarmHouse farmHouse = Game1.getLocationFromName("FarmHouse") as FarmHouse;
 
-            int index = 1;
-
-            foreach (Child child in farmHouse.getChildren())
+            // Plain for-loop because we need the index for GetChildBedSpot() .
+            for (int i = 0; i < farmHouse.getChildren().Count; i++)
             {
-                //If the child just aged up/first time loading save
-                if (IsOldEnough(child) && children != null && !children.Contains(child))
+                Child child = farmHouse.getChildren()[i];
+                // Younger children are not affected.
+                if (!IsOldEnough(child))
                 {
-                    //Add child to list & remove from farmHouse
-                    children.Add(child);
-                    farmHouse.getCharacters().Remove(child);
-
-                    //Create childCopy, add childCopy to list, add to farmHouse at random spot
-                    Point openPoint = farmHouse.getRandomOpenPointInHouse(Game1.random, 0, 30);
-                    Point defaultBedPoint = farmHouse.GetChildBedSpot(child.Gender);
-                    defaultBedPoint = new Point(defaultBedPoint.X, defaultBedPoint.Y);
-
-                    Vector2 location = openPoint == null ? new Vector2(openPoint.X * 64f, openPoint.Y * 64f) : new Vector2(defaultBedPoint.X * 64f, defaultBedPoint.Y * 64f);
-
-                    Dictionary<string, string> dispositions = Game1.content.Load<Dictionary<string, string>>("Data\\NPCDispositions");
-                    if (dispositions.ContainsKey(child.Name))
-                    {
-                        string[] defaultPosition = dispositions[child.Name].Split('/')[10].Split(' ');
-                        location = new Vector2(int.Parse(defaultPosition[1]) * 64f, int.Parse(defaultPosition[2]) * 64f);
-                    }
-
-                    // ATTENTION: When a token becomes ready for a given child ContentPatcher might create an NPC.
-                    // We must use that NPC and not add another copy!
-                    NPC childCopy = farmHouse.getCharacters().FirstOrDefault(npc => IsCorrespondingNPC(child, npc));
-                    if (childCopy != null)
-                    {
-                        copies.Add(child.Name, childCopy);
-
-                        ModEntry.monitor.Log($"ATTENTION: Using existing NPC child instance created by CP for {child.Name} to prevent ghost child", LogLevel.Warn);
-                    }
-                    else
-                    {
-                        // The correct sprite is not available yet so we use the child sprite for creating the object.
-                        // We must load the correct sprite later.
-                        childCopy = new NPC(child.Sprite, location, "FarmHouse", 2, child.Name, false, null, null) //schedule null, portrait null
-                        {
-                            DefaultMap = Game1.player.homeLocation.Value,
-                            DefaultPosition = location,
-                            Breather = true,
-                            HideShadow = false,
-                            Position = location,
-                            displayName = child.Name
-                        };
-
-                        copies.Add(child.Name, childCopy);
-                        farmHouse.addCharacter(childCopy);
-
-                        ModEntry.monitor.Log($"ATTENTION: Added new NPC child instance for {child.Name} to farm house", LogLevel.Warn);
-
-                        // Load child NPC sprite in OnOneSecondUpdateTicking() .
-                        updateNeeded = true;
-                    }
-
-                    //Check if I've made this NPC before & set gift info
-                    try
-                    {
-                        NPCFriendshipData childCopyFriendship = helper.Data.ReadJsonFile<NPCFriendshipData>(helper.Content.GetActualAssetKey("assets/data_" + childCopy.Name + ".json", ContentSource.ModFolder));
-                        if (childCopyFriendship != null)
-                        {
-                            Game1.player.friendshipData.TryGetValue(child.Name, out Friendship childFriendship);
-                            childFriendship.GiftsThisWeek = childCopyFriendship.GiftsThisWeek;
-                            childFriendship.LastGiftDate = new WorldDate(childCopyFriendship.GetYear(), childCopyFriendship.GetSeason(), childCopyFriendship.GetDay());
-                        }
-                    }
-                    catch (Exception) { }
-                }
-                //If NPC was already generated previously
-                else if (copies.ContainsKey(child.Name))
-                {
-                    //Remove child
-                    farmHouse.getCharacters().Remove(child);
-
-                    //Add copy at random location in the house
-                    copies.TryGetValue(child.Name, out NPC childCopy);
-
-                    childCopy.Position = childCopy.DefaultPosition;
-                    farmHouse.addCharacter(childCopy);
+                    continue;
                 }
 
-                index++;
+                Point bedSpot = farmHouse.GetChildBedSpot(i);
+                child.setTilePosition(bedSpot);
+
+                ModEntry.monitor.Log($"OnDayStarted(): Moved child {child.Name} to bed {bedSpot}");
             }
-        }
-
-        /* OnOneSecondUpdateTicking
-         * This isn't ideal, it will keep trying to load the sprite if the mod fails,
-         * but this is my current solution for executing this code after Content Patcher packs are ready.
-         */
-        private void OnOneSecondUpdateTicking(object sender, OneSecondUpdateTickingEventArgs e)
-        {
-            if (updateNeeded && Context.IsWorldReady)
-            {
-                FarmHouse farmHouse = Utility.getHomeOfFarmer(Game1.player);
-
-                foreach (NPC childCopy in copies.Values)
-                {
-                    //Try to load child sprite
-                    try
-                    {
-                        childCopy.Sprite = new AnimatedSprite("Characters/" + childCopy.Name, 0, 16, 32);
-                    }
-                    catch (Exception) { }
-
-                    //Try to load DefaultPosition from dispositions
-                    try
-                    {
-                        Dictionary<string, string> dispositions = Game1.content.Load<Dictionary<string, string>>("Data\\NPCDispositions");
-                        if (dispositions.ContainsKey(childCopy.Name))
-                        {
-                            string[] defaultPosition = dispositions[childCopy.Name].Split('/')[10].Split(' ');
-                            Vector2 location = new Vector2(int.Parse(defaultPosition[1]) * 64f, int.Parse(defaultPosition[2]) * 64f);
-
-                            childCopy.Position = location;
-                            childCopy.DefaultPosition = location;
-                            farmHouse.characters.Remove(childCopy);
-                            farmHouse.addCharacter(childCopy);
-                        }
-                    }
-                    catch (Exception) { }
-                }
-
-                updateNeeded = false;
-            }
-        }
+         }
 
         /* OnSaving
          * When the game saves overnight, I add the child back to the FarmHouse.characters list
@@ -280,6 +172,9 @@ namespace ChildToNPC
                 if (!farmHouse.getCharacters().Contains(child))
                     farmHouse.addCharacter(child);
             }
+            // It's hard to do things right: Clearing the collections might not be the best way but it's easy and it works.
+            children.Clear();
+            copies.Clear();
         }
 
         /* OnReturnedToTitle
@@ -499,7 +394,7 @@ namespace ChildToNPC
         /// <typeparam name="T">The value type.</typeparam>
         /// <param name="loading">Get the value if the save is still loading.</param>
         /// <param name="loaded">Get the value if the world is fully loaded.</param>
-        private static T GetSaveData<T>(Func<SaveGame, T> loading, Func<T> loaded)
+        internal static T GetSaveData<T>(Func<SaveGame, T> loading, Func<T> loaded)
             where T : class
         {
             if (Context.IsWorldReady)

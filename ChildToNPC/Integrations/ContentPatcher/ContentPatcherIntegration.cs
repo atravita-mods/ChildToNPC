@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Globalization;
+using System.Collections.Generic;
 using System.Linq;
 using StardewModdingAPI;
 using StardewValley;
 using StardewValley.Characters;
+using StardewValley.Locations;
 
 namespace ChildToNPC.Integrations.ContentPatcher
 {
@@ -31,6 +33,7 @@ namespace ChildToNPC.Integrations.ContentPatcher
         /// <summary>The total number of children, including those not converted to NPC yet.</summary>
         private int TotalChildren;
 
+        private HashSet<NPC> AdultNPCsInFarmHouse;
 
         /*********
         ** Public methods
@@ -139,21 +142,75 @@ namespace ChildToNPC.Integrations.ContentPatcher
             // update context
             int oldTotal = this.TotalChildren;
             ChildData[] oldData = this.Cache;
-            this.FetchNewData(out this.Cache, out this.TotalChildren);
+            this.FetchNewData(out this.Cache, out this.TotalChildren, out bool updateNPCs);
             return
                 oldTotal != this.TotalChildren
-                || this.IsChanged(oldData, this.Cache);
+                || this.IsChanged(oldData, this.Cache)
+                || updateNPCs;
         }
 
         /// <summary>Fetch the latest child data.</summary>
         /// <param name="data">The children converted to NPCs.</param>
         /// <param name="totalChildren">The total number of children, including those not converted to NPC yet.</param>
-        private void FetchNewData(out ChildData[] data, out int totalChildren)
+        private void FetchNewData(out ChildData[] data, out int totalChildren, out bool updateNPCs)
         {
             Child[] allChildren = ModEntry.GetAllChildrenForTokens().ToArray();
-            Child[] convertibleChildren = allChildren.Where(ModEntry.IsOldEnough).ToArray();
+            Child[] convertibleChildren = allChildren.Where(c => ModEntry.IsOldEnough(c) && !ModEntry.children.Contains(c)).ToArray();
 
             totalChildren = allChildren.Length;
+
+            updateNPCs = false;
+
+            // Every time the game is saved, the children are re-added to the FarmHouse
+            // So every morning, I check if there are children in the FarmHouse and remove them,
+            // and I add their dopplegangers to the FarmHouse.
+            FarmHouse farmHouse = ModEntry.GetSaveData(
+                loading: save => save.locations.OfType<FarmHouse>().FirstOrDefault(p => p.Name == "FarmHouse"),
+                loaded: () => Game1.getLocationFromName("FarmHouse") as FarmHouse
+            );
+            if (farmHouse != null)
+            {
+                // Handle added NPCs.
+                var oldAdultNPCsInFarmHouse = AdultNPCsInFarmHouse;
+                AdultNPCsInFarmHouse = new HashSet<NPC>(farmHouse.getCharacters().Where(c => !(c is Child)));
+                if (AdultNPCsInFarmHouse?.Count > oldAdultNPCsInFarmHouse?.Count)
+                {
+                    var addedAdultNPCs = AdultNPCsInFarmHouse.Except(oldAdultNPCsInFarmHouse);
+                    // Identify the converted children so we can remove their originals.
+                    var convertedChildNPCs = (from adult in addedAdultNPCs
+                                              from child in convertibleChildren
+                                              where ModEntry.IsCorrespondingNPC(child, adult)
+                                              select new { adult, child });
+
+                    foreach (var npc in convertedChildNPCs)
+                    {
+                        ModEntry.monitor.Log($"FetchNewData(): Detected child NPC {npc.adult.Name}");
+
+                        //Add child to list & remove from farmHouse
+                        ModEntry.children.Add(npc.child);
+                        farmHouse.getCharacters().Remove(npc.child);
+
+                        ModEntry.copies.Add(npc.child.Name, npc.adult);
+
+                        updateNPCs = true;
+
+                        ModEntry.monitor.Log($"FetchNewData(): Converted child NPC {npc.child.Name}");
+
+                        //Check if I've made this NPC before & set gift info
+                        try
+                        {
+                            NPCFriendshipData childCopyFriendship = ModEntry.helper.Data.ReadJsonFile<NPCFriendshipData>(ModEntry.helper.Content.GetActualAssetKey("assets/data_" + npc.adult.Name + ".json", ContentSource.ModFolder));
+                            if (childCopyFriendship != null)
+                            {
+                                Game1.player.friendshipData.TryGetValue(npc.child.Name, out Friendship childFriendship);
+                                childFriendship.GiftsThisWeek = childCopyFriendship.GiftsThisWeek;
+                                childFriendship.LastGiftDate = new WorldDate(childCopyFriendship.GetYear(), childCopyFriendship.GetSeason(), childCopyFriendship.GetDay());
+                            }
+                        }
+                        catch (Exception) { }
+                    }
+                }
+            }
 
             data = new ChildData[convertibleChildren.Length];
             for (int i = 0; i < data.Length; i++)
