@@ -60,6 +60,8 @@ namespace ChildToNPC
         public static IMonitor monitor;
         public static IModHelper helper;
         public static ModConfig Config;
+
+        private ContentPatcherIntegration contentPatcherIntegration;
         public bool updateNeeded = true;
 
         public override void Entry(IModHelper helper)
@@ -115,6 +117,9 @@ namespace ChildToNPC
                 {
                     continue;
                 }
+
+                // ATTENTION: By removing the child we prevent it from aging properly.
+                child.dayUpdate(Game1.dayOfMonth);
 
                 Point bedSpot = farmHouse.GetChildBedSpot(i);
                 child.setTilePosition(bedSpot);
@@ -175,6 +180,7 @@ namespace ChildToNPC
             // It's hard to do things right: Clearing the collections might not be the best way but it's easy and it works.
             children.Clear();
             copies.Clear();
+            contentPatcherIntegration.ClearCache();
         }
 
         /* OnReturnedToTitle
@@ -252,7 +258,8 @@ namespace ChildToNPC
          */
         private void OnGameLaunched(object sender, GameLaunchedEventArgs e)
         {
-            new ContentPatcherIntegration(this.ModManifest, this.Helper.ModRegistry).RegisterTokens();
+            contentPatcherIntegration = new ContentPatcherIntegration(this.ModManifest, this.Helper.ModRegistry);
+            contentPatcherIntegration.RegisterTokens();
         }
 
         /// <summary>Get whether a child is old enough to convert into an NPC.</summary>
@@ -275,7 +282,8 @@ namespace ChildToNPC
             // children not converted yet
             FarmHouse farmhouse = GetSaveData(
                 loading: save => save.locations.OfType<FarmHouse>().FirstOrDefault(p => p.Name == "FarmHouse"),
-                loaded: () => (FarmHouse)Game1.getLocationFromName("FarmHouse")
+                loaded: () => (FarmHouse)Game1.getLocationFromName("FarmHouse"),
+                out bool loadingFromSave
             );
             if (farmhouse != null)
             {
@@ -289,7 +297,8 @@ namespace ChildToNPC
             // get current date
             SDate today = GetSaveData(
                 loading: save => new SDate(save.dayOfMonth, save.currentSeason, save.year),
-                () => SDate.Now()
+                () => SDate.Now(),
+                out bool loadingFromSave
             );
 
             // get birthday
@@ -298,8 +307,8 @@ namespace ChildToNPC
             {
                 try
                 {
-                    // -1 because the new day already began.
-                    birthday = today.AddDays(-child.daysOld-1);
+                    // When loading from save we need -1 because the new day already began, save is from yesterday.
+                    birthday = loadingFromSave ? today.AddDays(-child.daysOld-1) : today.AddDays(-child.daysOld);
                 }
                 catch (ArithmeticException) { }
             }
@@ -317,7 +326,8 @@ namespace ChildToNPC
             // else current spouse
             return GetSaveData(
                 loading: save => save.player.spouse,
-                loaded: () => Game1.player.spouse
+                loaded: () => Game1.player.spouse,
+                out bool loadingFromSave
             );
         }
 
@@ -394,14 +404,21 @@ namespace ChildToNPC
         /// <typeparam name="T">The value type.</typeparam>
         /// <param name="loading">Get the value if the save is still loading.</param>
         /// <param name="loaded">Get the value if the world is fully loaded.</param>
-        internal static T GetSaveData<T>(Func<SaveGame, T> loading, Func<T> loaded)
+        internal static T GetSaveData<T>(Func<SaveGame, T> loading, Func<T> loaded, out bool loadingFromSave)
             where T : class
         {
+            loadingFromSave = false;
+
             if (Context.IsWorldReady)
+            {
                 return loaded();
+            }
 
             if (SaveGame.loaded != null)
+            {
+                loadingFromSave = true;
                 return loading(SaveGame.loaded);
+            }
 
             return null;
         }
@@ -456,9 +473,24 @@ namespace ChildToNPC
             // We identify an NPC by name, birthday season and birthday day.
             // TODO: That should be enough for most cases but I really don't know what happens
             // if your spouse has the same name, birthday season and birthday day as your child...
-            Func<NPC, string> getNPCBirthday = c => $"{c.birthday_Season} {c.birthday_Day}";
+            Func<NPC, string> getNPCBirthday = c => $"{c.birthday_Season.Value} {c.birthday_Day.Value}";
 
-            return (!(npc is Child) && npc.Name == child.Name && getNPCBirthday(npc) == GetChildNPCBirthday(child));
+            if (!(npc is Child) && npc.Name == child.Name)
+            {
+                string birthday1 = getNPCBirthday(npc);
+                string birthday2 = GetChildNPCBirthday(child);
+
+                if (birthday1 != birthday2)
+                {
+                    monitor.Log($"Found a corresponding NPC with a different birthday. This might be a bug: {birthday1} != {birthday2}", LogLevel.Warn);
+
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
         }
     }
 }

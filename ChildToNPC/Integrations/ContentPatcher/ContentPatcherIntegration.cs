@@ -155,7 +155,7 @@ namespace ChildToNPC.Integrations.ContentPatcher
         private void FetchNewData(out ChildData[] data, out int totalChildren, out bool updateNPCs)
         {
             Child[] allChildren = ModEntry.GetAllChildrenForTokens().ToArray();
-            Child[] convertibleChildren = allChildren.Where(c => ModEntry.IsOldEnough(c) && !ModEntry.children.Contains(c)).ToArray();
+            Child[] convertibleChildren = allChildren.Where(c => ModEntry.IsOldEnough(c)).ToArray();
 
             totalChildren = allChildren.Length;
 
@@ -166,7 +166,8 @@ namespace ChildToNPC.Integrations.ContentPatcher
             // and I add their dopplegangers to the FarmHouse.
             FarmHouse farmHouse = ModEntry.GetSaveData(
                 loading: save => save.locations.OfType<FarmHouse>().FirstOrDefault(p => p.Name == "FarmHouse"),
-                loaded: () => Game1.getLocationFromName("FarmHouse") as FarmHouse
+                loaded: () => Game1.getLocationFromName("FarmHouse") as FarmHouse,
+                out bool loadingFromSave
             );
             if (farmHouse != null)
             {
@@ -190,7 +191,14 @@ namespace ChildToNPC.Integrations.ContentPatcher
                         ModEntry.children.Add(npc.child);
                         farmHouse.getCharacters().Remove(npc.child);
 
-                        ModEntry.copies.Add(npc.child.Name, npc.adult);
+                        if (!ModEntry.copies.ContainsKey(npc.child.Name))
+                        {
+                            ModEntry.copies.Add(npc.child.Name, npc.adult);
+                        }
+                        else
+                        {
+                            ModEntry.monitor.Log($"FetchNewData(): ModEntry.copies already contains an entry for {npc.child.Name}. This is probably a bug.", LogLevel.Warn);
+                        }
 
                         updateNPCs = true;
 
@@ -245,6 +253,11 @@ namespace ChildToNPC.Integrations.ContentPatcher
             }
 
             return false;
+        }
+
+        internal void ClearCache()
+        {
+            this.Cache = null;
         }
     }
 }
