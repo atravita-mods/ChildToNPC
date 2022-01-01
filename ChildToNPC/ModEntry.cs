@@ -93,7 +93,40 @@ namespace ChildToNPC
 
             // Harmony
             Harmony harmony = new Harmony("Loe2run.ChildToNPC");
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
+            // NPC.performTenMinuteUpdate patch (prefix)
+            harmony.Patch(
+                original: AccessTools.Method(typeof(NPC), nameof(NPC.performTenMinuteUpdate)),
+                prefix: new HarmonyMethod(typeof(Patches.NPCPerformTenMinuteUpdatePatch), nameof(Patches.NPCPerformTenMinuteUpdatePatch.Prefix))
+            );
+            // NPC.arriveAtFarmHouse (postfix)
+            harmony.Patch(
+                original: AccessTools.Method(typeof(NPC), nameof(NPC.arriveAtFarmHouse)),
+                postfix: new HarmonyMethod(typeof(Patches.NPCArriveAtFarmHousePatch), nameof(Patches.NPCArriveAtFarmHousePatch.Postfix))
+            );
+            harmony.Patch(
+                original: AccessTools.Method(typeof(NPC), nameof(NPC.checkSchedule)),
+                prefix: new HarmonyMethod(typeof(Patches.NPCCheckSchedulePatch), nameof(Patches.NPCCheckSchedulePatch.Prefix))
+            );
+            // NPC.parseMasterSchedule patch (prefix)
+            harmony.Patch(
+                original: AccessTools.Method(typeof(NPC), "parseMasterSchedule"),
+                prefix: new HarmonyMethod(typeof(Patches.NPCParseMasterSchedulePatch), nameof(Patches.NPCParseMasterSchedulePatch.Prefix))
+            );
+            // NPC.prepareToDisembarkOnNewSchedulePath patch (postfix)
+            harmony.Patch(
+                original: AccessTools.Method(typeof(NPC), "prepareToDisembarkOnNewSchedulePath"),
+                postfix: new HarmonyMethod(typeof(Patches.NPCPrepareToDisembarkOnNewSchedulePathPatch), nameof(Patches.NPCPrepareToDisembarkOnNewSchedulePathPatch.Postfix))
+            );
+            // PathFindController.handleWarps patch (prefix)
+            harmony.Patch(
+                original: AccessTools.Method(typeof(PathFindController), nameof(PathFindController.handleWarps)),
+                prefix: new HarmonyMethod(typeof(Patches.PFCHandleWarpsPatch), nameof(Patches.PFCHandleWarpsPatch.Prefix))
+            );
+            // PathFindController.moveCharacter patch (prefix)
+            harmony.Patch(
+                original: AccessTools.Method(typeof(PathFindController), "moveCharacter"),
+                prefix: new HarmonyMethod(typeof(Patches.PFCMoveCharacterPatch), nameof(Patches.PFCMoveCharacterPatch.Prefix))
+            );
         }
 
         /* OnDayStarted
