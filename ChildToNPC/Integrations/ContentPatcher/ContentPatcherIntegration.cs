@@ -191,31 +191,32 @@ namespace ChildToNPC.Integrations.ContentPatcher
                         ModEntry.children.Add(npc.child);
                         farmHouse.getCharacters().Remove(npc.child);
 
+                        // We need this check because this code runs everytime an NPC enters the farm house.
                         if (!ModEntry.copies.ContainsKey(npc.child.Name))
                         {
                             ModEntry.copies.Add(npc.child.Name, npc.adult);
-                        }
-                        else
-                        {
-                            ModEntry.monitor.Log($"FetchNewData(): ModEntry.copies already contains an entry for {npc.child.Name}. This is probably a bug.", LogLevel.Warn);
-                        }
 
-                        updateNPCs = true;
+                            // Reload the schedule. Necessary to trigger NPCParseMasterSchedulePatch.Patch
+                            // after an NPC was identified as child NPC.
+                            npc.adult.Schedule = npc.adult.getSchedule(Game1.dayOfMonth);
 
-                        ModEntry.monitor.Log($"FetchNewData(): Converted child NPC {npc.child.Name}");
+                            updateNPCs = true;
 
-                        //Check if I've made this NPC before & set gift info
-                        try
-                        {
-                            NPCFriendshipData childCopyFriendship = ModEntry.helper.Data.ReadJsonFile<NPCFriendshipData>(ModEntry.helper.Content.GetActualAssetKey("assets/data_" + npc.adult.Name + ".json", ContentSource.ModFolder));
-                            if (childCopyFriendship != null)
+                            ModEntry.monitor.Log($"FetchNewData(): Converted child NPC {npc.child.Name}");
+
+                            //Check if I've made this NPC before & set gift info
+                            try
                             {
-                                Game1.player.friendshipData.TryGetValue(npc.child.Name, out Friendship childFriendship);
-                                childFriendship.GiftsThisWeek = childCopyFriendship.GiftsThisWeek;
-                                childFriendship.LastGiftDate = new WorldDate(childCopyFriendship.GetYear(), childCopyFriendship.GetSeason(), childCopyFriendship.GetDay());
+                                NPCFriendshipData childCopyFriendship = ModEntry.helper.Data.ReadJsonFile<NPCFriendshipData>(ModEntry.helper.Content.GetActualAssetKey("assets/data_" + npc.adult.Name + ".json", ContentSource.ModFolder));
+                                if (childCopyFriendship != null)
+                                {
+                                    Game1.player.friendshipData.TryGetValue(npc.child.Name, out Friendship childFriendship);
+                                    childFriendship.GiftsThisWeek = childCopyFriendship.GiftsThisWeek;
+                                    childFriendship.LastGiftDate = new WorldDate(childCopyFriendship.GetYear(), childCopyFriendship.GetSeason(), childCopyFriendship.GetDay());
+                                }
                             }
+                            catch (Exception) { }
                         }
-                        catch (Exception) { }
                     }
                 }
             }
