@@ -112,6 +112,10 @@ namespace ChildToNPC
                 original: AccessTools.Method(typeof(NPC), "parseMasterSchedule"),
                 prefix: new HarmonyMethod(typeof(Patches.NPCParseMasterSchedulePatch), nameof(Patches.NPCParseMasterSchedulePatch.Prefix))
             );
+            harmony.Patch(
+                original: AccessTools.Method(typeof(NPC), "parseMasterSchedule"),
+                postfix: new HarmonyMethod(typeof(Patches.NPCParseMasterSchedulePatch), nameof(Patches.NPCParseMasterSchedulePatch.Postfix))
+            );
             // NPC.prepareToDisembarkOnNewSchedulePath patch (postfix)
             harmony.Patch(
                 original: AccessTools.Method(typeof(NPC), "prepareToDisembarkOnNewSchedulePath"),
@@ -275,7 +279,7 @@ namespace ChildToNPC
             {
                 if (c.daysOld.Value < 54)
                     c.daysOld.Value = 54;
-                Monitor.Log(childName + " is now " + c.daysOld + " days old.");
+                Monitor.Log(childName + " is now " + c.daysOld.Value + " days old.");
             }
             else
             {
@@ -462,11 +466,13 @@ namespace ChildToNPC
          */
         public static bool IsChildNPC(Character c)
         {
+            //ModEntry.monitor.Log($"copies: {copies?.Count}", LogLevel.Error);
             return (copies != null && copies.ContainsValue(c as NPC));
         }
 
         public static bool IsChildNPC(NPC npc)
         {
+            //ModEntry.monitor.Log($"copies: {copies?.Count}", LogLevel.Error); 
             return (copies != null && copies.ContainsValue(npc));
         }
 
