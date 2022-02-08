@@ -107,13 +107,13 @@ namespace ChildToNPC
                 original: AccessTools.Method(typeof(NPC), nameof(NPC.checkSchedule)),
                 prefix: new HarmonyMethod(typeof(Patches.NPCCheckSchedulePatch), nameof(Patches.NPCCheckSchedulePatch.Prefix))
             );
-            // NPC.parseMasterSchedule patch (prefix)
+            // NPC.parseMasterSchedule patch (prefix & postfix)
             harmony.Patch(
-                original: AccessTools.Method(typeof(NPC), "parseMasterSchedule"),
+                original: AccessTools.Method(typeof(NPC), nameof(NPC.parseMasterSchedule)),
                 prefix: new HarmonyMethod(typeof(Patches.NPCParseMasterSchedulePatch), nameof(Patches.NPCParseMasterSchedulePatch.Prefix))
             );
             harmony.Patch(
-                original: AccessTools.Method(typeof(NPC), "parseMasterSchedule"),
+                original: AccessTools.Method(typeof(NPC), nameof(NPC.parseMasterSchedule)),
                 postfix: new HarmonyMethod(typeof(Patches.NPCParseMasterSchedulePatch), nameof(Patches.NPCParseMasterSchedulePatch.Postfix))
             );
             // NPC.prepareToDisembarkOnNewSchedulePath patch (postfix)
@@ -303,7 +303,7 @@ namespace ChildToNPC
         /// <param name="child">The child to check.</param>
         public static bool IsOldEnough(Child child)
         {
-            return child.daysOld >= Config.AgeWhenKidsAreModified;
+            return child.daysOld.Value >= Config.AgeWhenKidsAreModified;
         }
 
         /// <summary>Get all children, including those who haven't been converted into NPCs.</summary>
