@@ -107,14 +107,12 @@ namespace ChildToNPC
                 original: AccessTools.Method(typeof(NPC), nameof(NPC.checkSchedule)),
                 prefix: new HarmonyMethod(typeof(Patches.NPCCheckSchedulePatch), nameof(Patches.NPCCheckSchedulePatch.Prefix))
             );
-            // NPC.parseMasterSchedule patch (prefix & postfix)
+            // NPC.parseMasterSchedule patch (prefix, postfix, finalizer)
             harmony.Patch(
                 original: AccessTools.Method(typeof(NPC), nameof(NPC.parseMasterSchedule)),
-                prefix: new HarmonyMethod(typeof(Patches.NPCParseMasterSchedulePatch), nameof(Patches.NPCParseMasterSchedulePatch.Prefix))
-            );
-            harmony.Patch(
-                original: AccessTools.Method(typeof(NPC), nameof(NPC.parseMasterSchedule)),
-                postfix: new HarmonyMethod(typeof(Patches.NPCParseMasterSchedulePatch), nameof(Patches.NPCParseMasterSchedulePatch.Postfix))
+                prefix: new HarmonyMethod(typeof(Patches.NPCParseMasterSchedulePatch), nameof(Patches.NPCParseMasterSchedulePatch.Prefix)),
+                postfix: new HarmonyMethod(typeof(Patches.NPCParseMasterSchedulePatch), nameof(Patches.NPCParseMasterSchedulePatch.Postfix)),
+                finalizer: new HarmonyMethod(typeof(Patches.NPCParseMasterSchedulePatch), nameof(Patches.NPCParseMasterSchedulePatch.Finalizer))
             );
             // NPC.prepareToDisembarkOnNewSchedulePath patch (postfix)
             harmony.Patch(
@@ -466,13 +464,11 @@ namespace ChildToNPC
          */
         public static bool IsChildNPC(Character c)
         {
-            //ModEntry.monitor.Log($"copies: {copies?.Count}", LogLevel.Error);
             return (copies != null && copies.ContainsValue(c as NPC));
         }
 
         public static bool IsChildNPC(NPC npc)
         {
-            //ModEntry.monitor.Log($"copies: {copies?.Count}", LogLevel.Error); 
             return (copies != null && copies.ContainsValue(npc));
         }
 
